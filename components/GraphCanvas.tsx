@@ -1,5 +1,5 @@
 "use client";
-import React, { useRef, useEffect, useCallback, useState } from "react";
+import React, { useRef, useEffect, useLayoutEffect, useCallback, useState } from "react";
 import { Graph, ColorMap, Vertex } from "@/lib/types";
 import { getVertexColor } from "@/lib/utils";
 import { GraphRenderer } from "@/lib/renderer";
@@ -211,10 +211,59 @@ export default function GraphCanvas({ graph, colorMap, onGraphChange }: Props) {
     }
   };
 
-  const handleRecenter = () => {
-    setPan({ x: 0, y: 0 });
-    setScale(1);
-  };
+  const handleRecenter = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || graph.vertices.length === 0) {
+      setPan({ x: 0, y: 0 });
+      setScale(1);
+      return;
+    }
+
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return;
+
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const v of graph.vertices) {
+      if (v.x < minX) minX = v.x;
+      if (v.x > maxX) maxX = v.x;
+      if (v.y < minY) minY = v.y;
+      if (v.y > maxY) maxY = v.y;
+    }
+
+    const padding = 60;
+    const graphWidth = Math.max(maxX - minX, 1);
+    const graphHeight = Math.max(maxY - minY, 1);
+
+    const scaleX = rect.width / (graphWidth + padding * 2);
+    const scaleY = rect.height / (graphHeight + padding * 2);
+    const newScale = Math.min(scaleX, scaleY, 1.5);
+
+    const graphCx = (minX + maxX) / 2;
+    const graphCy = (minY + maxY) / 2;
+
+    setPan({
+      x: rect.width / 2 - graphCx * newScale,
+      y: rect.height / 2 - graphCy * newScale
+    });
+    setScale(newScale);
+  }, [graph.vertices]);
+
+  const prevVertsCount = useRef(-1);
+
+  useLayoutEffect(() => {
+    const currentCount = graph.vertices.length;
+    const prevCount = prevVertsCount.current;
+
+    if (currentCount > 0 && (prevCount === -1 || Math.abs(currentCount - prevCount) > 1)) {
+      handleRecenter();
+
+      requestAnimationFrame(() => {
+        handleRecenter();
+      });
+    }
+
+    prevVertsCount.current = currentCount;
+  }, [graph.vertices.length, handleRecenter]);
 
   return (
     <div className="relative w-full rounded-2xl border border-border bg-background shadow-sm overflow-hidden animate-fade-in group">

@@ -1,5 +1,3 @@
-// types.ts — основні типи для задачі розфарбовування графів
-
 export interface Vertex {
   id: number;
   x: number;
@@ -23,6 +21,7 @@ export interface ColoringResult {
   colorMap: ColorMap;
   numColors: number;
   executionTimeMs: number;
+  iterations: number;
   steps?: ColoringStep[];
 }
 
@@ -49,6 +48,7 @@ export interface ComparisonResult {
   algorithm: AlgorithmType;
   numColors: number;
   executionTimeMs: number;
+  iterations: number;
 }
 
 export type InputMode = "canvas" | "matrix";

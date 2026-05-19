@@ -1,29 +1,26 @@
-// utils.ts — допоміжні функції
+import { Graph, ColorMap, AlgorithmType, ComparisonResult } from "./types";
 
-import { Graph, ColorMap, AlgorithmType } from "./types";
-
-// Палітра кольорів для вершин (максимум 20 кольорів під ліміт вершин)
 export const COLOR_PALETTE: string[] = [
-  "#abc730", // 1. кислотно-оливковий
-  "#ebcb4d", // 2. гірчичний
-  "#f44336", // 3. коралово-червоний
-  "#3f51b5", // 4. королівський синій
-  "#e91e63", // 5. насичена маджента
-  "#00bcd4", // 6. ціан
-  "#9c27b0", // 7. щільний фіолетовий
-  "#ff9800", // 8. бурштиновий
-  "#2196f3", // 9. небесно-синій
-  "#4caf50", // 10. трав'янисто-зелений
-  "#ff5722", // 11. глибокий помаранчевий
-  "#cddc39", // 12. лаймовий
-  "#795548", // 13. шоколадний
-  "#009688", // 14. смарагдовий
-  "#c2185b", // 15. темно-малиновий
-  "#607d8b", // 16. сіро-блакитний
-  "#8bc34a", // 17. яблучно-зелений
-  "#512da8", // 18. індиго
-  "#d32f2f", // 19. карміновий
-  "#00796b", // 20. темно-бірюзовий
+  "#abc730",
+  "#ebcb4d",
+  "#f44336",
+  "#3f51b5",
+  "#e91e63",
+  "#00bcd4",
+  "#9c27b0",
+  "#ff9800",
+  "#2196f3",
+  "#4caf50",
+  "#ff5722",
+  "#cddc39",
+  "#795548",
+  "#009688",
+  "#c2185b",
+  "#607d8b",
+  "#8bc34a",
+  "#512da8",
+  "#d32f2f",
+  "#00796b",
 ];
 
 export const COLOR_NAMES_UA: string[] = [
@@ -65,22 +62,39 @@ export function getAlgorithmNameUA(type: AlgorithmType): string {
   }
 }
 
-// Конвертація матриці суміжності ↔ Graph
 export function matrixToGraph(
   matrix: number[][],
   existingVertices?: { id: number; x: number; y: number; label: string }[]
 ): Graph {
   const n = matrix.length;
 
+  const isSizeChanged = !existingVertices || existingVertices.length !== n;
+
+  const r = Math.max(120, Math.min(250, 35 * n));
+  const cx = 460, cy = 230;
+
+  let maxId = -1;
+  if (existingVertices) {
+    existingVertices.forEach(v => {
+      if (v.id > maxId) maxId = v.id;
+    });
+  }
+
   const vertices = Array.from({ length: n }, (_, i) => {
-    if (existingVertices && existingVertices[i]) return existingVertices[i];
     const angle = (2 * Math.PI * i) / n - Math.PI / 2;
-    // ФІКС: Ідеальний центр для десктопного екрану
-    const cx = 460, cy = 230, r = Math.min(150, 40 * n);
+    const targetX = Math.round(cx + r * Math.cos(angle));
+    const targetY = Math.round(cy + r * Math.sin(angle));
+
+    if (existingVertices && existingVertices[i]) {
+      const v = existingVertices[i];
+      return isSizeChanged ? { ...v, x: targetX, y: targetY } : v;
+    }
+
+    maxId++;
     return {
-      id: i,
-      x: Math.round(cx + r * Math.cos(angle)),
-      y: Math.round(cy + r * Math.sin(angle)),
+      id: maxId,
+      x: targetX,
+      y: targetY,
       label: `V${i + 1}`,
     };
   });
@@ -89,7 +103,7 @@ export function matrixToGraph(
   for (let i = 0; i < n; i++) {
     for (let j = i + 1; j < n; j++) {
       if (matrix[i][j] !== 0) {
-        edges.push({ from: i, to: j });
+        edges.push({ from: vertices[i].id, to: vertices[j].id });
       }
     }
   }
@@ -112,91 +126,106 @@ export function graphToMatrix(graph: Graph): number[][] {
   return matrix;
 }
 
-// Збереження результатів у текстовий файл
 export function generateResultText(
   graph: Graph,
   colorMap: ColorMap,
-  algorithmName: string,
+  algorithm: AlgorithmType,
   numColors: number,
-  executionTimeMs: number
+  executionTimeMs: number,
+  iterations: number,
+  comparison: ComparisonResult[]
 ): string {
   const now = new Date();
-  const dateStr = now.toLocaleDateString("uk-UA");
+  const dateStr = now.toLocaleDateString("uk-UA", { day: '2-digit', month: '2-digit', year: 'numeric' });
   const timeStr = now.toLocaleTimeString("uk-UA");
 
-  const lines: string[] = [
-    "=".repeat(60),
-    "РЕЗУЛЬТАТИ РОЗФАРБОВУВАННЯ ГРАФА",
-    "Курсова робота: Розфарбовування графів",
-    "КПІ ім. І. Сікорського | Рибалко Т.С.",
-    "=".repeat(60),
-    "",
-    `Дата: ${dateStr}  Час: ${timeStr}`,
-    `Алгоритм: ${algorithmName}`,
-    `Кількість кольорів: ${numColors}`,
-    `Час виконання: ${executionTimeMs.toFixed(4)} мс`,
-    "",
-    "-".repeat(60),
-    "ВЕРШИНИ ГРАФА:",
-    "-".repeat(60),
-  ];
+  const algoName = getAlgorithmNameUA(algorithm);
+  const complexity = algorithm === "greedy" ? "O(V^2)" : "O(k^V)";
 
-  for (const v of graph.vertices) {
-    const colorIdx = colorMap.get(v.id);
-    const colorName =
-      colorIdx !== undefined ? COLOR_NAMES_UA[colorIdx % COLOR_NAMES_UA.length] : "—";
-    lines.push(`  ${v.label.padEnd(6)} → Колір ${(colorIdx ?? -1) + 1} (${colorName})`);
+  const timeDisplay = executionTimeMs === -1 ? "Таймаут" : (executionTimeMs === 0 ? "<0.001 мс" : `${executionTimeMs.toFixed(3)} мс`);
+  const iterDisplay = executionTimeMs === -1 ? "—" : iterations.toString();
+
+  let text = `============================================================\n`;
+  text += `РЕЗУЛЬТАТИ РОЗФАРБОВУВАННЯ ГРАФА\n`;
+  text += `Курсова робота: Розфарбовування графів\n`;
+  text += `КПІ ім. І. Сікорського | Рибалко Т.С.\n`;
+  text += `============================================================\n\n`;
+
+  text += `Дата: ${dateStr}  Час: ${timeStr}\n`;
+  text += `Алгоритм: ${algoName}\n`;
+  text += `Теоретична складність: ${complexity}\n`;
+  text += `Кількість кольорів: ${executionTimeMs === -1 ? "—" : numColors}\n`;
+  text += `Кількість ітерацій: ${iterDisplay}\n`;
+  text += `Час виконання: ${timeDisplay}\n\n`;
+
+  if (comparison && comparison.length > 0) {
+    text += `------------------------------------------------------------\n`;
+    text += `ПОРІВНЯЛЬНИЙ АНАЛІЗ СКЛАДНОСТІ ТА ШВИДКОДІЇ:\n`;
+    text += `------------------------------------------------------------\n`;
+    comparison.forEach(r => {
+      const name = getAlgorithmNameUA(r.algorithm).padEnd(36, " ");
+      const comp = (r.algorithm === "greedy" ? "O(V^2)" : "O(k^V)").padEnd(8, " ");
+      const iters = r.executionTimeMs === -1 ? "Таймаут".padEnd(10, " ") : `${r.iterations} ітер.`.padEnd(10, " ");
+      const time = r.executionTimeMs === -1 ? "Таймаут" : (r.executionTimeMs === 0 ? "<0.001 мс" : `${r.executionTimeMs.toFixed(3)} мс`);
+
+      text += `${name} | ${comp} | ${iters} | ${time}\n`;
+    });
+    text += `\n`;
   }
 
-  lines.push("");
-  lines.push("-".repeat(60));
-  lines.push("РЕБРА ГРАФА:");
-  lines.push("-".repeat(60));
+  text += `------------------------------------------------------------\n`;
+  text += `ВЕРШИНИ ГРАФА:\n`;
+  text += `------------------------------------------------------------\n`;
+  graph.vertices.forEach(v => {
+    const c = colorMap.get(v.id) ?? -1;
+    const cName = c !== -1 ? `${c + 1} (${COLOR_NAMES_UA[c % COLOR_NAMES_UA.length]})` : "Не розфарбовано";
+    text += `  ${v.label.padEnd(6, " ")} → Колір ${cName}\n`;
+  });
+  text += `\n`;
 
-  if (graph.edges.length === 0) {
-    lines.push("  (граф не має ребер)");
-  } else {
-    for (const e of graph.edges) {
-      const vFrom = graph.vertices.find((v) => v.id === e.from);
-      const vTo = graph.vertices.find((v) => v.id === e.to);
-      lines.push(`  ${vFrom?.label ?? e.from} — ${vTo?.label ?? e.to}`);
-    }
+  text += `------------------------------------------------------------\n`;
+  text += `РЕБРА ГРАФА:\n`;
+  text += `------------------------------------------------------------\n`;
+  graph.edges.forEach(e => {
+    const from = graph.vertices.find(v => v.id === e.from)?.label || String(e.from);
+    const to = graph.vertices.find(v => v.id === e.to)?.label || String(e.to);
+    text += `  ${from} — ${to}\n`;
+  });
+  text += `\n`;
+
+  text += `------------------------------------------------------------\n`;
+  text += `МАТРИЦЯ СУМІЖНОСТІ:\n`;
+  text += `------------------------------------------------------------\n`;
+  const size = graph.vertices.length;
+  const m = Array(size).fill(0).map(() => Array(size).fill(0));
+  graph.edges.forEach(e => {
+    const i = graph.vertices.findIndex(v => v.id === e.from);
+    const j = graph.vertices.findIndex(v => v.id === e.to);
+    if (i !== -1 && j !== -1) { m[i][j] = 1; m[j][i] = 1; }
+  });
+
+  text += `       ` + graph.vertices.map(v => v.label.padStart(3, " ")).join(" ") + `\n`;
+  for (let i = 0; i < size; i++) {
+    text += `${graph.vertices[i].label.padEnd(7, " ")}` + m[i].map(val => String(val).padStart(3, " ")).join(" ") + `\n`;
   }
+  text += `\n`;
 
-  lines.push("");
-  lines.push("-".repeat(60));
-  lines.push("МАТРИЦЯ СУМІЖНОСТІ:");
-  lines.push("-".repeat(60));
-
-  const matrix = graphToMatrix(graph);
-  const header = "     " + graph.vertices.map((v) => v.label.padStart(4)).join("");
-  lines.push(header);
-  for (let i = 0; i < matrix.length; i++) {
-    const row = graph.vertices[i].label.padEnd(5) + matrix[i].map((v) => String(v).padStart(4)).join("");
-    lines.push(row);
-  }
-
-  lines.push("");
-  lines.push("=".repeat(60));
-  lines.push("СХЕМА РОЗФАРБУВАННЯ:");
-  lines.push("=".repeat(60));
-
+  text += `============================================================\n`;
+  text += `СХЕМА РОЗФАРБУВАННЯ:\n`;
+  text += `============================================================\n`;
   const colorGroups = new Map<number, string[]>();
-  for (const v of graph.vertices) {
+  graph.vertices.forEach(v => {
     const c = colorMap.get(v.id) ?? -1;
     if (!colorGroups.has(c)) colorGroups.set(c, []);
     colorGroups.get(c)!.push(v.label);
-  }
+  });
+  [...colorGroups.entries()].sort((a, b) => a[0] - b[0]).forEach(([c, verts]) => {
+    const cName = c !== -1 ? `${c + 1} (${COLOR_NAMES_UA[c % COLOR_NAMES_UA.length]})` : "Не розфарбовано";
+    text += `  Колір ${cName}: ${verts.join(", ")}\n`;
+  });
+  text += `\n============================================================\n`;
 
-  for (const [colorIdx, verts] of [...colorGroups.entries()].sort((a, b) => a[0] - b[0])) {
-    const colorName = colorIdx >= 0 ? COLOR_NAMES_UA[colorIdx % COLOR_NAMES_UA.length] : "—";
-    lines.push(`  Колір ${colorIdx + 1} (${colorName}): ${verts.join(", ")}`);
-  }
-
-  lines.push("");
-  lines.push("=".repeat(60));
-
-  return lines.join("\n");
+  return text;
 }
 
 export function downloadTextFile(content: string, filename: string): void {
@@ -209,7 +238,6 @@ export function downloadTextFile(content: string, filename: string): void {
   URL.revokeObjectURL(url);
 }
 
-// Генерація прикладних графів
 export function generateExampleGraph(type: "petersen" | "cycle" | "complete" | "bipartite"): Graph {
   const cx = 460;
   const cy = 230;

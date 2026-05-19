@@ -1,18 +1,14 @@
-// algorithms.ts — алгоритми розфарбовування графів
-// ОО-підхід: кожен алгоритм — клас з методом solve()
-
 import { Graph, ColorMap, ColoringResult, AdjacencyList } from "./types";
 import { AlgorithmTimeoutException } from "./exceptions"
 import { AlgorithmType } from "./types";
 
-// Базовий абстрактний клас GraphColoringAlgorithm
 abstract class GraphColoringAlgorithm {
   protected graph: Graph;
   protected adjacency: AdjacencyList;
 
   protected iterations = 0;
   protected startTime = 0;
-  protected readonly TIME_LIMIT_MS = 1500; // 1.5 секунди максимум на виконання
+  protected readonly TIME_LIMIT_MS = 1500;
 
   constructor(graph: Graph) {
     this.graph = graph;
@@ -77,6 +73,8 @@ export class GreedyColoringAlgorithm extends GraphColoringAlgorithm {
         (this.getNeighbors(b.id).size) - (this.getNeighbors(a.id).size)
     );
 
+    this.iterations = sorted.length;
+
     for (const vertex of sorted) {
       const usedColors = this.getUsedColors(vertex.id, colorMap);
       const color = this.getSmallestAvailableColor(usedColors);
@@ -88,6 +86,7 @@ export class GreedyColoringAlgorithm extends GraphColoringAlgorithm {
       colorMap,
       numColors,
       executionTimeMs: performance.now() - start,
+      iterations: this.iterations,
     };
   }
 }
@@ -120,7 +119,7 @@ export class BacktrackingMRVAlgorithm extends GraphColoringAlgorithm {
   }
 
   private backtrack(uncolored: Set<number>, colorMap: ColorMap): boolean {
-    this.checkTimeout(); // 🔥 ВИКЛИК ЗАПОБІЖНИКА
+    this.checkTimeout();
 
     if (uncolored.size === 0) return true;
 
@@ -171,6 +170,7 @@ export class BacktrackingMRVAlgorithm extends GraphColoringAlgorithm {
       colorMap,
       numColors: new Set(colorMap.values()).size,
       executionTimeMs: performance.now() - this.startTime,
+      iterations: this.iterations,
     };
   }
 }
@@ -252,6 +252,7 @@ export class BacktrackingDegreeAlgorithm extends GraphColoringAlgorithm {
       colorMap,
       numColors: new Set(colorMap.values()).size,
       executionTimeMs: performance.now() - this.startTime,
+      iterations: this.iterations,
     };
   }
 }
