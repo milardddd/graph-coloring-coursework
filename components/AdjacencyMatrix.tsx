@@ -9,12 +9,13 @@ interface Props {
 }
 
 export default function AdjacencyMatrix({ graph, onGraphChange }: Props) {
-  const [size, setSize] = useState<number>(() => Math.min(Math.max(graph.vertices.length, 2), 20));
+  const [size, setSize] = useState<number>(() => Math.max(1, Math.min(graph.vertices.length, 20)));
+
   const [matrix, setMatrix] = useState<number[][]>(() => {
-    const m = graphToMatrix(graph);
-    const s = Math.min(Math.max(graph.vertices.length, 2), 20);
-    return Array.from({ length: s }, (_, i) => Array.from({ length: s }, (_, j) => m[i]?.[j] ?? 0));
+    if (graph.vertices.length === 0) return [[0]];
+    return graphToMatrix(graph);
   });
+
   const [error, setError] = useState<string>("");
 
   const applyMatrix = (m: number[][], s: number) => {
@@ -22,32 +23,38 @@ export default function AdjacencyMatrix({ graph, onGraphChange }: Props) {
   };
 
   useEffect(() => {
-    if (graph.vertices.length === 0) return;
-
-    const safeSize = Math.min(Math.max(graph.vertices.length, 2), 20);
-
     if (graph.vertices.length > 20) {
       setError("Увага: Граф обрізано до 20 вершин (максимальний ліміт).");
       const m = graphToMatrix(graph);
-      const truncatedM = Array.from({ length: safeSize }, (_, i) =>
-        Array.from({ length: safeSize }, (_, j) => m[i]?.[j] ?? 0)
+      const truncatedM = Array.from({ length: 20 }, (_, i) =>
+        Array.from({ length: 20 }, (_, j) => m[i]?.[j] ?? 0)
       );
-
       setMatrix(truncatedM);
-      setSize(safeSize);
-      onGraphChange(matrixToGraph(truncatedM, graph.vertices.slice(0, safeSize)));
+      setSize(20);
+      onGraphChange(matrixToGraph(truncatedM, graph.vertices.slice(0, 20)));
       return;
     }
 
-    setSize(safeSize);
-    setMatrix(graphToMatrix(graph));
+    setError("");
+
+    const displaySize = Math.max(1, graph.vertices.length);
+    setSize(displaySize);
+
+    if (graph.vertices.length === 0) {
+      setMatrix([[0]]);
+    } else {
+      setMatrix(graphToMatrix(graph));
+    }
   }, [graph, onGraphChange]);
 
   const resizeMatrix = (newSize: number) => {
     if (newSize < 2 || newSize > 20) return setError("Розмір від 2 до 20");
+
     setError("");
     setSize(newSize);
-    const newM = Array.from({ length: newSize }, (_, i) => Array.from({ length: newSize }, (_, j) => matrix[i]?.[j] ?? 0));
+    const newM = Array.from({ length: newSize }, (_, i) =>
+      Array.from({ length: newSize }, (_, j) => matrix[i]?.[j] ?? 0)
+    );
     setMatrix(newM);
     applyMatrix(newM, newSize);
   };
@@ -83,11 +90,30 @@ export default function AdjacencyMatrix({ graph, onGraphChange }: Props) {
         <div className="flex items-center gap-3 bg-background border border-border px-4 py-2 rounded-xl shadow-sm">
           <label className="text-sm text-foreground/70 font-mono">Розмір n =</label>
           <div className="flex items-center gap-2">
-            <button onClick={() => resizeMatrix(size - 1)} className="w-8 h-8 rounded-lg bg-card border border-border text-foreground hover:bg-foreground/10 transition-colors font-mono"> − </button>
+            <button
+              onClick={() => resizeMatrix(size - 1)}
+              disabled={size <= 2}
+              className={`w-8 h-8 rounded-lg border font-mono transition-colors ${size <= 2
+                ? "bg-foreground/5 border-border/50 text-foreground/30 cursor-not-allowed"
+                : "bg-card border-border text-foreground hover:bg-foreground/10"
+                }`}
+            >
+              −
+            </button>
             <span className="w-6 text-center font-mono text-foreground font-medium">{size}</span>
-            <button onClick={() => resizeMatrix(size + 1)} className="w-8 h-8 rounded-lg bg-card border border-border text-foreground hover:bg-foreground/10 transition-colors font-mono"> + </button>
+            <button
+              onClick={() => resizeMatrix(size + 1)}
+              disabled={size >= 20}
+              className={`w-8 h-8 rounded-lg border font-mono transition-colors ${size >= 20
+                ? "bg-foreground/5 border-border/50 text-foreground/30 cursor-not-allowed"
+                : "bg-card border-border text-foreground hover:bg-foreground/10"
+                }`}
+            >
+              +
+            </button>
           </div>
         </div>
+
         <button onClick={fillRandom} className="px-4 py-2 rounded-xl bg-card border border-border text-foreground text-sm font-mono hover:bg-foreground/5 shadow-sm">⚡ Випадковий</button>
         <button onClick={() => { const e = Array(size).fill(Array(size).fill(0)); setMatrix(e); applyMatrix(e, size); }} className="px-4 py-2 rounded-xl border border-border text-foreground/70 text-sm font-mono hover:bg-foreground/5">✕ Очистити</button>
       </div>

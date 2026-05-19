@@ -43,6 +43,7 @@ export default function Home() {
   const [comparison, setComparison] = useState<ComparisonResult[]>([]);
   const [isValid, setIsValid] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
+  const [iterations, setIterations] = useState(0);
 
   const lastCalculatedGraphRef = useRef<string>("");
   const lastAlgorithmRef = useRef<AlgorithmType | null>(null);
@@ -54,8 +55,8 @@ export default function Home() {
   }, []);
 
   const handleRun = async () => {
-    if (graph.vertices.length === 0) {
-      alert("Додайте вершини до графа перед запуском.");
+    if (graph.vertices.length < 2) {
+      alert("Додайте мінімум 2 вершини до графа перед запуском розрахунку.");
       return;
     }
 
@@ -79,6 +80,7 @@ export default function Home() {
       setColorMap(result.colorMap);
       setNumColors(result.numColors);
       setExecTime(result.executionTimeMs);
+      setIterations(result.iterations);
       setIsValid(validateColoring(graph, result.colorMap));
 
       if (currentGraphStr !== lastCalculatedGraphRef.current || comparison.length === 0) {
@@ -86,9 +88,9 @@ export default function Home() {
           try {
             const a = createAlgorithm(id, graph);
             const r = a.solve();
-            return { algorithm: id, numColors: r.numColors, executionTimeMs: r.executionTimeMs };
+            return { algorithm: id, numColors: r.numColors, executionTimeMs: r.executionTimeMs, iterations: r.iterations };
           } catch (e) {
-            return { algorithm: id, numColors: 0, executionTimeMs: -1 };
+            return { algorithm: id, numColors: 0, executionTimeMs: -1, iterations: -1 };
           }
         });
         setComparison(comp);
@@ -118,7 +120,6 @@ export default function Home() {
 
   return (
     <div className="min-h-screen flex flex-col font-sans bg-background">
-      {/* ── Header ─────────────────────────────────────────── */}
       <header className="bg-black border-b-2 border-border sticky top-0 z-50 shadow-sm">
         <div className="max-w-[1400px] mx-auto px-6 py-3 flex items-center justify-between">
 
@@ -143,7 +144,6 @@ export default function Home() {
 
       <main className="flex-1 w-full max-w-[1400px] mx-auto px-6 mt-4 mb-12">
         <div className="grid grid-cols-1 xl:grid-cols-[1fr_400px] gap-5">
-          {/* ── LEFT COLUMN ──────────────────────────────────── */}
           <div className="space-y-4">
 
             <div className="flex items-center justify-between">
@@ -224,8 +224,8 @@ export default function Home() {
               </div>
               <button
                 onClick={handleRun}
-                disabled={isRunning || graph.vertices.length === 0}
-                className={`w-full py-3 rounded-xl font-bold text-base transition-all ${isRunning || graph.vertices.length === 0
+                disabled={isRunning || graph.vertices.length < 2}
+                className={`w-full py-3 rounded-xl font-bold text-base transition-all ${isRunning || graph.vertices.length < 2
                   ? "bg-foreground/5 text-foreground/40 cursor-not-allowed border border-border/20"
                   : "bg-[#ebcb4d] text-black hover:opacity-90 shadow-sm hover:shadow-md active:scale-[0.98] cursor-pointer"
                   }`}
@@ -235,7 +235,6 @@ export default function Home() {
             </div>
           </div>
 
-          {/* ── RIGHT COLUMN ─────────────────────────────────── */}
           <div className="space-y-4">
             <div className="paper-card p-5 min-h-[300px]">
               <ResultsPanel
@@ -244,6 +243,7 @@ export default function Home() {
                 algorithm={algorithm}
                 numColors={numColors}
                 executionTimeMs={execTime}
+                iterations={iterations}
                 comparison={comparison}
                 isValid={isValid}
               />
